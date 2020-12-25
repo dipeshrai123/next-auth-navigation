@@ -1,4 +1,5 @@
 import * as React from "react";
+import { useRouter } from "next/router";
 
 function parseCookies(cookiesStr: any) {
   if (cookiesStr.length !== 0) {
@@ -51,10 +52,30 @@ async function getLogged(context: any) {
 }
 
 // Props for withAuth from getServerSideProps must contain `logged` key
-export const withAuth = (WrappedComponent: React.ComponentType) => {
+export const withAuth = (
+  WrappedComponent: React.ComponentType,
+  options?: {
+    redirectUri?: string; // Referes to: if not logged in uri
+    FallbackComponent?: React.ComponentType; // Referes to: if not logged in Component
+  }
+) => {
   return ({ logged, data }: { logged: any; data: any }) => {
-    if (!logged) {
-      return <div>Not logged</div>;
+    const router = useRouter();
+    const redirectUri = options?.redirectUri;
+    const FallbackComponent = options?.FallbackComponent;
+
+    React.useEffect(() => {
+      if (!logged && redirectUri) {
+        router.push(redirectUri);
+      }
+    }, [logged, redirectUri]);
+
+    if (!logged && redirectUri) {
+      return <div>Redirecting...</div>;
+    }
+
+    if (!logged && FallbackComponent) {
+      return <FallbackComponent />;
     }
 
     return <WrappedComponent {...data.props} />;
@@ -69,13 +90,11 @@ export const withAuthServerSideProps = (
   getServerSideProps: (context: any, data: any) => any
 ) => {
   return async (context: any) => {
-    const { logged, ...props } = await getLogged(context);
+    const clientData = await getLogged(context);
+    const { logged, ...props } = clientData;
 
     if (getServerSideProps) {
-      const data = await getServerSideProps(context, {
-        logged,
-        ...props,
-      });
+      const { logged, data } = await getServerSideProps(context, clientData);
 
       if (!data) {
         throw new Error(`Callback function cannot return ${data}`);
