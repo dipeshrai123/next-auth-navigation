@@ -1,6 +1,7 @@
 import * as React from "react";
 import { useRouter } from "next/router";
 
+// Parses all available cookies associated with client browser.
 function parseCookies(cookiesStr: any) {
   if (cookiesStr.length !== 0) {
     const cookies = cookiesStr.split("; ");
@@ -86,6 +87,8 @@ export const withAuth = (
 // If callback function is not passed, then it handles basic authentication
 // only for `logged` key
 // Callback function must return `logged` key as a prop.
+// Callback function accepts `context` and `data` as first and second args.
+// data contains all the available cookies in client browser with `logged` key (always).
 export const withAuthServerSideProps = (
   getServerSideProps: (context: any, data: any) => any
 ) => {
