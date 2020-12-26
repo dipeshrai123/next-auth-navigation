@@ -52,20 +52,28 @@ async function getLogged(context: any) {
   }
 }
 
+type OptionType = {
+  redirectUri?: string; // Referes to: if not logged redirect to redirectUri
+  authenticatedUri?: string; // Refers to: if logged redirect to authenticatedUri
+  FallbackComponent?: React.ComponentType; // Referes to: if not logged in Component
+};
+
 // Props for withAuth from getServerSideProps must contain `logged` key
 export const withAuth = (
   WrappedComponent: React.ComponentType,
-  options?: {
-    redirectUri?: string; // Referes to: if not logged redirect to redirectUri
-    FallbackComponent?: React.ComponentType; // Referes to: if not logged in Component
-    authenticatedUri?: string; // Refers to: if logged redirect to authenticatedUri
-  }
+  options?: OptionType
 ) => {
   return ({ logged, data }: { logged: any; data: any }) => {
     const router = useRouter();
     const redirectUri = options?.redirectUri;
-    const FallbackComponent = options?.FallbackComponent;
     const authenticatedUri = options?.authenticatedUri;
+    const FallbackComponent = options?.FallbackComponent;
+
+    if (redirectUri && authenticatedUri) {
+      throw new Error(
+        "Both redirectUri and authenticatedUri mustn't be set at once."
+      );
+    }
 
     React.useEffect(() => {
       if (!logged && redirectUri) {
@@ -87,6 +95,28 @@ export const withAuth = (
   };
 };
 
+// Attaching redirection paths in server-side
+const attachRedirection = (
+  targetObject: object,
+  {
+    redirectUri,
+    authenticatedUri,
+    logged,
+  }: { redirectUri?: string; authenticatedUri?: string; logged: boolean }
+) => {
+  if (!logged && redirectUri) {
+    targetObject["redirect"] = {
+      destination: redirectUri,
+      permanent: false,
+    };
+  } else if (logged && authenticatedUri) {
+    targetObject["redirect"] = {
+      destination: authenticatedUri,
+      permanent: false,
+    };
+  }
+};
+
 // Callback function here acts as a `getServerSideProps` function
 // If callback function is not passed, then it handles basic authentication
 // only for `logged` key
@@ -94,14 +124,25 @@ export const withAuth = (
 // Callback function accepts `context` and `data` as first and second args.
 // data contains all the available cookies in client browser with `logged` key (always).
 export const withAuthServerSideProps = (
-  getServerSideProps: (context: any, data: any) => any
+  options?: Omit<OptionType, "FallbackComponent">,
+  getServerSideProps?: (context: any, data: any) => any
 ) => {
   return async (context: any) => {
     const clientData = await getLogged(context);
     const { logged, ...props } = clientData;
 
+    // Redirection uris
+    const redirectUri = options?.redirectUri;
+    const authenticatedUri = options?.authenticatedUri;
+
+    if (redirectUri && authenticatedUri) {
+      throw new Error(
+        "Both redirectUri and authenticatedUri mustn't be set at once."
+      );
+    }
+
     if (getServerSideProps) {
-      const { logged, data } = await getServerSideProps(context, clientData);
+      const data = await getServerSideProps(context, clientData);
 
       if (!data) {
         throw new Error(`Callback function cannot return ${data}`);
@@ -111,15 +152,22 @@ export const withAuthServerSideProps = (
         throw new Error("Callback function must return props");
       }
 
-      return {
+      const returnObject = {
         props: {
           logged,
           data,
         },
       };
+      attachRedirection(returnObject, {
+        logged,
+        redirectUri,
+        authenticatedUri,
+      });
+      return returnObject;
     }
 
-    return {
+    // If callback is not passed create a `props` key for WrappedComponent
+    const returnObject = {
       props: {
         logged,
         data: {
@@ -130,5 +178,7 @@ export const withAuthServerSideProps = (
         },
       },
     };
+    attachRedirection(returnObject, { logged, redirectUri, authenticatedUri });
+    return returnObject;
   };
 };
