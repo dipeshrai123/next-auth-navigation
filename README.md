@@ -18,8 +18,6 @@ yarn add next-auth-navigation
 
 It is a NextJS Library for user authentication in client / server side. It provides basic HOC's that to wrap around pages to authenticate user very easily.
 
-
-
 ## Usage
 
 ### Authentication
@@ -29,24 +27,20 @@ It is a NextJS Library for user authentication in client / server side. It provi
 - **withAuth()** and
 - **withAuthServerSideProps()**
 
+#### withAuth(_Component_, _options?_)
 
-
-#### withAuth(_Component_, _options_)
-
-**withAuth()** accepts a _component_ for which we wan an authentication as a first argument and _options_ as a second argument. _options_ 
+**withAuth()** accepts a _component_ for which we wan an authentication as a first argument and _options_ as a second argument. _options_
 
 Let us configure the _second argument_.
 
-- **redirectUri** _( optional )_ : If the user is not logged in, user is redirected to path assigned in _redirectUri_, .
+- **redirectUri** _( optional )_ : If the user is not logged in, user is redirected to path assigned in _redirectUri_.
+- **authenticatedUri** _( optional )_ : If the user is logged in, user is redirected to path assigned in _authenticatedUri_.
 - **FallbackComponent** _( optional )_ : If the user is not logged in, Fallback component is shown on a page.
+- **FeedbackComponent** _( optional )_ : Feedback component is shown when redirecting either on _redirectUri_ or _authenticatedUri_.
 
+#### withAuthServerSideProps(_options?_, _callback?_)
 
-
-#### withAuthServerSideProps(callback)
-
-**withAuthServerSideProps()** is used instead of **getServerSideProps()** function on a page with **withAuth()** hoc. It is used to authenticate user in server-side. **callback** function can be provided which is acts as a **getServerSideProps()** function with _context_ as a first argument and _data_ as a second argument. 
-
-
+**withAuthServerSideProps()** is used instead of **getServerSideProps()** function on a page with **withAuth()** hoc. It is used to authenticate user in server-side. **options** is passed as a first optional argument where we can specify _redirectUri_ or _authenticatedUri_ for server-side redirection. **callback** function can be provided as second argument which acts as a **getServerSideProps()** function with _context_ as a first argument and _data_ as a second argument reffering all _cookie data_.
 
 **Example**
 
@@ -62,8 +56,6 @@ export default withAuth(Home, {
 
 export const getServerSideProps = withAuthServerSideProps();
 ```
-
-
 
 ## License
 
