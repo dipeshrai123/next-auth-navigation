@@ -53,9 +53,10 @@ async function getLogged(context: any) {
 }
 
 type OptionType = {
-  redirectUri?: string; // Referes to: if not logged redirect to redirectUri
+  redirectUri?: string; // Refers to: if not logged redirect to redirectUri
   authenticatedUri?: string; // Refers to: if logged redirect to authenticatedUri
-  FallbackComponent?: React.ComponentType; // Referes to: if not logged in Component
+  FallbackComponent?: React.ComponentType; // Refers to: if not logged in Component
+  FeedbackComponent?: React.ComponentType; // Refers to: Loading / Redirecting component
 };
 
 // Props for withAuth from getServerSideProps must contain `logged` key
@@ -68,6 +69,7 @@ export const withAuth = (
     const redirectUri = options?.redirectUri;
     const authenticatedUri = options?.authenticatedUri;
     const FallbackComponent = options?.FallbackComponent;
+    const FeedbackComponent = options?.FeedbackComponent;
 
     if (redirectUri && authenticatedUri) {
       throw new Error(
@@ -84,7 +86,11 @@ export const withAuth = (
     }, [logged, redirectUri]);
 
     if ((!logged && redirectUri) || (logged && authenticatedUri)) {
-      return <div>Redirecting...</div>;
+      return FeedbackComponent ? (
+        <FeedbackComponent />
+      ) : (
+        <div>Redirecting...</div>
+      );
     }
 
     if (!logged && FallbackComponent) {
@@ -124,7 +130,7 @@ const attachRedirection = (
 // Callback function accepts `context` and `data` as first and second args.
 // data contains all the available cookies in client browser with `logged` key (always).
 export const withAuthServerSideProps = (
-  options?: Omit<OptionType, "FallbackComponent">,
+  options?: Pick<OptionType, "redirectUri" | "authenticatedUri">,
   getServerSideProps?: (context: any, data: any) => any
 ) => {
   return async (context: any) => {
