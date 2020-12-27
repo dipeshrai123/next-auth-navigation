@@ -1,27 +1,27 @@
 import * as React from "react";
 import { useRouter } from "next/router";
+import { GetServerSidePropsContext, GetServerSidePropsResult } from "next";
+
+type CookieType = {
+  logged: boolean;
+  [name: string]: any;
+};
 
 // Parses all available cookies associated with client browser.
-function parseCookies(cookiesStr: any) {
+function parseCookies(cookiesStr: string) {
+  const cookieObj: CookieType = { logged: false };
+
   if (cookiesStr.length !== 0) {
     const cookies = cookiesStr.split("; ");
 
-    const cookieObj = {};
     cookies.forEach((cookie: any) => {
       const [key, value] = cookie.split("=");
 
-      cookieObj[key] = isNaN(value)
-        ? value === "true"
-          ? true
-          : value === "false"
-          ? false
-          : value
-        : Number(value);
+      cookieObj[key] = key === "logged" ? Boolean(value) : value;
     });
-
-    return cookieObj;
   }
-  return null;
+
+  return cookieObj;
 }
 
 async function getUserInfo(cookiesStr: string) {
@@ -29,27 +29,15 @@ async function getUserInfo(cookiesStr: string) {
 }
 
 // To ensure validation `logged` key must be available for headers cookies.
-async function getLogged(context: any) {
-  let userInfo: any = null;
+async function getLogged(context: GetServerSidePropsContext) {
+  const userInfo: CookieType = { logged: false };
 
-  try {
-    userInfo = await getUserInfo(context.req.headers.cookie || "");
-  } catch {
-    userInfo = null;
-  }
+  const headerCookies = await getUserInfo(context.req.headers.cookie || "");
 
-  if (userInfo) {
-    const { logged, ...props } = userInfo;
-
-    return {
-      logged,
-      ...props,
-    };
-  } else {
-    return {
-      logged: false,
-    };
-  }
+  return {
+    ...userInfo,
+    ...headerCookies,
+  };
 }
 
 type OptionType = {
@@ -64,7 +52,7 @@ export const withAuth = (
   WrappedComponent: React.ComponentType,
   options?: OptionType
 ) => {
-  return ({ logged, data }: { logged: any; data: any }) => {
+  return ({ logged, data }: { logged: boolean; data: any }) => {
     const router = useRouter();
     const redirectUri = options?.redirectUri;
     const authenticatedUri = options?.authenticatedUri;
@@ -131,15 +119,18 @@ const attachRedirection = (
 // data contains all the available cookies in client browser with `logged` key (always).
 export const withAuthServerSideProps = (
   options?: Pick<OptionType, "redirectUri" | "authenticatedUri">,
-  getServerSideProps?: (context: any, data: any) => any
+  getServerSideProps?: (
+    context: GetServerSidePropsContext,
+    cookieData: CookieType
+  ) => any
 ) => {
-  return async (context: any) => {
-    const clientData = await getLogged(context);
+  return async (context: GetServerSidePropsContext) => {
+    const clientData: CookieType = await getLogged(context);
     const { logged, ...props } = clientData;
 
     // Redirection uris
-    const redirectUri = options?.redirectUri;
-    const authenticatedUri = options?.authenticatedUri;
+    const redirectUri: string | undefined = options?.redirectUri;
+    const authenticatedUri: string | undefined = options?.authenticatedUri;
 
     if (redirectUri && authenticatedUri) {
       throw new Error(
@@ -158,7 +149,7 @@ export const withAuthServerSideProps = (
         throw new Error("Callback function must return props");
       }
 
-      const returnObject = {
+      const returnObject: GetServerSidePropsResult<any> = {
         props: {
           logged,
           data,
@@ -173,7 +164,7 @@ export const withAuthServerSideProps = (
     }
 
     // If callback is not passed create a `props` key for WrappedComponent
-    const returnObject = {
+    const returnObject: GetServerSidePropsResult<any> = {
       props: {
         logged,
         data: {
